@@ -5,7 +5,9 @@
 This repository is a fork of [[nathangrinsztajn/Box-World](https://github.com/nathangrinsztajn/Box-World)].
 I customized to Viewport-BoxWorld described in the [[paper](https://arxiv.org/abs/1806.01822)].
 
-![viewport.png](examples/viewport.png)
+<p align="center">
+ <img src="examples/viewport.png" alt="viewport.png">
+</p>
 
 ## Actions
 The game provides 4 actions to interact with the environment. 
