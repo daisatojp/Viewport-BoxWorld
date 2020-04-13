@@ -1,12 +1,12 @@
+import time
+import numpy as np
+import matplotlib.pyplot as plt
 import gym
 from gym.utils import seeding
 from gym.spaces.discrete import Discrete
 from gym.spaces import Box
-
-import numpy as np
-import matplotlib.pyplot as plt
-
 from boxworld_gen import *
+
 
 class boxworld(gym.Env):
     """Boxworld representation
@@ -19,10 +19,12 @@ class boxworld(gym.Env):
              If None, generate a new data by calling world_gen() function
     """
 
-    def __init__(self, n, goal_length, num_distractor, distractor_length, max_steps=300, world=None):
+    def __init__(self, n, goal_length, num_distractor, distractor_length,
+                 perception_size=5, max_steps=300, world=None, silence=False):
         self.goal_length = goal_length
         self.num_distractor = num_distractor
         self.distractor_length = distractor_length
+        self.perception_size = perception_size
         self.n = n
         self.num_pairs = goal_length - 1 + distractor_length * num_distractor
 
@@ -36,12 +38,20 @@ class boxworld(gym.Env):
         self.max_steps = max_steps
         self.action_space = Discrete(len(ACTION_LOOKUP))
         self.observation_space = Box(low=0, high=255, shape=(n, n, 3), dtype=np.uint8)
+        self.silence = silence
 
         # Game initialization
-        self.owned_key = [220, 220, 220]
+        self.owned_key = np.array(grid_color, dtype=np.float64)
 
         self.np_random_seed = None
         self.reset(world)
+
+        self.fig = plt.figure()
+        self.ax = self.fig.add_subplot(1, 1, 1)
+        self.img = self.ax.imshow(self.world, vmin=0, vmax=255, interpolation='none')
+        self.fig.canvas.draw()
+        self.axbackground = self.fig.canvas.copy_from_bbox(self.ax.bbox)
+        plt.show(block=False)
 
     def seed(self, seed=None):
         self.np_random_seed = seed
@@ -79,7 +89,7 @@ class boxworld(gym.Env):
                 # Key is not locked
                 possible_move = True
                 self.owned_key = self.world[new_position[0], new_position[1]].copy()
-                self.world[0, 0] = self.owned_key
+                # self.world[0, 0] = self.owned_key
                 if np.array_equal(self.world[new_position[0], new_position[1]], goal_color):
                     # Goal reached
                     reward += self.reward_gem
@@ -92,11 +102,13 @@ class boxworld(gym.Env):
             # It is a lock
             if np.array_equal(self.world[new_position[0], new_position[1]], self.owned_key):
                 # The lock matches the key
+                self.owned_key = np.array(grid_color, dtype=np.float64)
                 possible_move = True
             else:
                 possible_move = False
-                print("lock color is {}, but owned key is {}".format(
-                    self.world[new_position[0], new_position[1]], self.owned_key))
+                if not self.silence:
+                    print("lock color is {}, but owned key is {}".format(
+                        self.world[new_position[0], new_position[1]], self.owned_key))
 
         if possible_move:
             self.player_position = new_position
@@ -107,37 +119,70 @@ class boxworld(gym.Env):
             "action.moved_player": possible_move,
         }
 
-        return self.world, reward, done, info
+        return self.state(), reward, done, info
 
     def reset(self, world=None):
         if world is None:
            self.world, self.player_position = world_gen(n=self.n, goal_length=self.goal_length,
-                                                         num_distractor=self.num_distractor,
-                                                         distractor_length=self.distractor_length,
-                                                        seed=self.np_random_seed)
+                                                        num_distractor=self.num_distractor,
+                                                        distractor_length=self.distractor_length,
+                                                        seed=self.np_random_seed,
+                                                        silence=self.silence)
         else:
             self.world, self.player_position = world
 
         self.num_env_steps = 0
 
-        return self.world
+        return self.state()
 
-    def render(self, mode="human"):
-        img = self.world.astype(np.uint8)
-        if mode == "return":
+    def render(self, mode='window'):
+        img = self.world_fog_map()
+        if mode == 'return':
             return img
-
         else:
-            # from gym.envs.classic_control import rendering
-            # if self.viewer is None:
-            #     self.viewer = rendering.SimpleImageViewer()
-            # self.viewer.imshow(img)
-            # return self.viewer.isopen
-            plt.imshow(img, vmin=0, vmax=255, interpolation='none')
-            plt.show()
+            self.img.set_data(img)
+            self.fig.canvas.restore_region(self.axbackground)
+            self.ax.draw_artist(self.img)
+            self.fig.canvas.blit(self.ax.bbox)
+            plt.savefig('img.png')
+            plt.pause(0.001)
 
     def get_action_lookup(self):
         return ACTION_LOOKUP
+
+    def perception_mask(self):
+        mask = np.zeros(shape=(self.n, self.n), dtype=np.bool)
+        k = self.perception_size // 2
+        t = max(self.player_position[0] - k, 0)
+        b = min(self.player_position[0] + k + 1, self.n)
+        l = max(self.player_position[1] - k, 0)
+        r = min(self.player_position[1] + k + 1, self.n)
+        mask[t:b, l:r] = True
+        return mask
+
+    def perception_map(self):
+        k = self.perception_size // 2
+        world = np.pad(self.world, ((k, k), (k, k), (0, 0)),
+                       mode='constant', constant_values=0)
+        t = self.player_position[0] + k - k
+        b = self.player_position[0] + k + k + 1
+        l = self.player_position[1] + k - k
+        r = self.player_position[1] + k + k + 1
+        return world[t:b, l:r, :]
+
+    def world_fog_map(self):
+        img = self.world.copy()
+        mask_out_of_perception = np.logical_not(self.perception_mask())
+        mask_grid_color = np.ma.masked_equal(self.world, grid_color).mask[:, :, 0]
+        mask = np.logical_and(mask_out_of_perception, mask_grid_color)
+        img[mask] = 0
+        img = img.astype(np.uint8)
+        return img
+
+    def state(self):
+        return self.perception_map() / 255.0,\
+               self.owned_key / 255.0,\
+               self.player_position / self.n
 
 
 ACTION_LOOKUP = {

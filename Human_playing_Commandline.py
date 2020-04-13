@@ -57,10 +57,9 @@ def print_available_actions():
 for i_episode in range(n_rounds):
     print('Starting new game!')
     observation = env.reset()
+    env.render()
 
     for t in range(n_steps):
-        env.render()
-
         action = input('Select action: ')
         try:
             action = int(action)
@@ -73,21 +72,23 @@ for i_episode in range(n_rounds):
             continue
 
         observation, reward, done, info = env.step(action)
+        env.render()
         print(ACTION_LOOKUP[action], reward, done, info)
-        print(len(observation), len(observation[0]), len(observation[0][0]))
-        if save_images:
-            # img = Image.fromarray(env.render(mode="return"), 'RGB')
-            # img.save(os.path.join('images', 'observation_{}_{}.png'.format(i_episode, t)))
-            img = env.render(mode="return")
-            fig = plt.imshow(img, vmin=0, vmax=255, interpolation='none')
-            fig.axes.get_xaxis().set_visible(False)
-            fig.axes.get_yaxis().set_visible(False)
-            plt.savefig(os.path.join('images', 'observation_{}_{}.png'.format(i_episode, t)))
-
+        print('owned_key={}, player_position={}'.format(
+            list((observation[1] * 255).astype(np.uint8)),
+            list((observation[2] * env.n).astype(np.uint8))))
+        # if save_images:
+        #     # img = Image.fromarray(env.render(mode="return"), 'RGB')
+        #     # img.save(os.path.join('images', 'observation_{}_{}.png'.format(i_episode, t)))
+        #     img = env.render(mode="return")
+        #     fig = plt.imshow(img, vmin=0, vmax=255, interpolation='none')
+        #     fig.axes.get_xaxis().set_visible(False)
+        #     fig.axes.get_yaxis().set_visible(False)
+        #     plt.savefig(os.path.join('images', 'observation_{}_{}.png'.format(i_episode, t)))
 
         if done:
             print("Episode finished after {} timesteps".format(t+1))
-            env.render()
+            # env.render()
             break
 
     if generate_gifs:

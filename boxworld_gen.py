@@ -1,6 +1,7 @@
 import numpy as np
 import random
 
+
 def sampling_pairs(num_pair, n=12):
     possibilities = set(range(1, n*(n-1)))
     keys = []
@@ -25,18 +26,33 @@ def sampling_pairs(num_pair, n=12):
     return keys, locks, first_key, agent_pos
 
 
-colors = {0: [0, 0, 0], 1: [230, 190, 255], 2: [170, 255, 195], 3: [255, 250, 200],
-                       4: [255, 216, 177], 5: [250, 190, 190], 6: [240, 50, 230], 7: [145, 30, 180], 8: [67, 99, 216],
-                       9: [66, 212, 244], 10: [60, 180, 75], 11: [191, 239, 69], 12: [255, 255, 25], 13: [245, 130, 49],
-                       14: [230, 25, 75], 15: [128, 0, 0], 16: [154, 99, 36], 17: [128, 128, 0], 18: [70, 153, 144],
-                       19: [0, 0, 117]}
+colors = {0: [230, 190, 255],
+          1: [170, 255, 195],
+          2: [255, 250, 200],
+          3: [255, 216, 177],
+          4: [250, 190, 190],
+          5: [240, 50, 230],
+          6: [145, 30, 180],
+          7: [67, 99, 216],
+          8: [66, 212, 244],
+          9: [60, 180, 75],
+          10: [191, 239, 69],
+          11: [255, 255, 25],
+          12: [245, 130, 49],
+          13: [230, 25, 75],
+          14: [128, 0, 0],
+          15: [154, 99, 36],
+          16: [128, 128, 0],
+          17: [70, 153, 144],
+          18: [0, 0, 117]}
 
 num_colors = len(colors)
 agent_color = [128, 128, 128]
 goal_color = [255, 255, 255]
 grid_color = [220, 220, 220]
 
-def world_gen(n=12, goal_length=3, num_distractor=2, distractor_length=2, seed=None):
+
+def world_gen(n=12, goal_length=3, num_distractor=2, distractor_length=2, seed=None, silence=False):
     """generate boxworld
     """
     if seed is not None:
@@ -45,7 +61,7 @@ def world_gen(n=12, goal_length=3, num_distractor=2, distractor_length=2, seed=N
     world_dic = {}
     world = np.ones((n, n, 3)) * 220
     goal_colors = random.sample(range(num_colors), goal_length - 1)
-    distractor_possible_colors = [color for color in range(20) if color not in goal_colors]
+    distractor_possible_colors = [color for color in range(num_colors) if color not in goal_colors]
     distractor_colors = [random.sample(distractor_possible_colors, distractor_length) for k in range(num_distractor)]
     distractor_roots = random.choices(range(goal_length - 1), k=num_distractor)
     keys, locks, first_key, agent_pos = sampling_pairs(goal_length - 1 + distractor_length * num_distractor, n)
@@ -57,14 +73,16 @@ def world_gen(n=12, goal_length=3, num_distractor=2, distractor_length=2, seed=N
             color = goal_color  # final key is white
         else:
             color = colors[goal_colors[i]]
-        print("place a key with color {} on position {}".format(color, keys[i-1]))
-        print("place a lock with color {} on {})".format(colors[goal_colors[i-1]], locks[i-1]))
+        if not silence:
+            print("place a key with color {} on position {}".format(color, keys[i-1]))
+            print("place a lock with color {} on {})".format(colors[goal_colors[i-1]], locks[i-1]))
         world[keys[i-1][0], keys[i-1][1]] = np.array(color)
         world[locks[i-1][0], locks[i-1][1]] = np.array(colors[goal_colors[i-1]])
 
     # keys[0] is an orphand key so skip it
     world[first_key[0], first_key[1]] = np.array(colors[goal_colors[0]])
-    print("place the first key with color {} on position {}".format(goal_colors[0], first_key))
+    if not silence:
+        print("place the first key with color {} on position {}".format(goal_colors[0], first_key))
 
     # place distractors
     for i, (distractor_color, root) in enumerate(zip(distractor_colors, distractor_roots)):
@@ -83,9 +101,11 @@ def world_gen(n=12, goal_length=3, num_distractor=2, distractor_length=2, seed=N
     world[agent_pos[0], agent_pos[1]] = np.array(agent_color)
     return world, agent_pos
 
+
 def update_color(world, previous_agent_loc, new_agent_loc):
-        world[previous_agent_loc[0], previous_agent_loc[1]] = grid_color
-        world[new_agent_loc[0], new_agent_loc[1]] = agent_color
+    world[previous_agent_loc[0], previous_agent_loc[1]] = grid_color
+    world[new_agent_loc[0], new_agent_loc[1]] = agent_color
+
 
 def is_empty(room):
     return np.array_equal(room, grid_color) or np.array_equal(room, agent_color)
