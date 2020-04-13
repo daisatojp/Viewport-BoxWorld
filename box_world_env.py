@@ -20,11 +20,11 @@ class boxworld(gym.Env):
     """
 
     def __init__(self, n, goal_length, num_distractor, distractor_length,
-                 perception_size=5, max_steps=300, world=None, silence=False):
+                 viewport_size=5, max_steps=300, world=None, silence=False):
         self.goal_length = goal_length
         self.num_distractor = num_distractor
         self.distractor_length = distractor_length
-        self.perception_size = perception_size
+        self.viewport_size = viewport_size
         self.n = n
         self.num_pairs = goal_length - 1 + distractor_length * num_distractor
 
@@ -44,6 +44,8 @@ class boxworld(gym.Env):
         self.owned_key = np.array(grid_color, dtype=np.float64)
 
         self.np_random_seed = None
+
+        self.world = None
         self.reset(world)
 
         self.fig = plt.figure()
@@ -144,15 +146,14 @@ class boxworld(gym.Env):
             self.fig.canvas.restore_region(self.axbackground)
             self.ax.draw_artist(self.img)
             self.fig.canvas.blit(self.ax.bbox)
-            plt.savefig('img.png')
             plt.pause(0.001)
 
     def get_action_lookup(self):
         return ACTION_LOOKUP
 
-    def perception_mask(self):
+    def viewport_mask(self):
         mask = np.zeros(shape=(self.n, self.n), dtype=np.bool)
-        k = self.perception_size // 2
+        k = self.viewport_size // 2
         t = max(self.player_position[0] - k, 0)
         b = min(self.player_position[0] + k + 1, self.n)
         l = max(self.player_position[1] - k, 0)
@@ -160,8 +161,8 @@ class boxworld(gym.Env):
         mask[t:b, l:r] = True
         return mask
 
-    def perception_map(self):
-        k = self.perception_size // 2
+    def viewport_map(self):
+        k = self.viewport_size // 2
         world = np.pad(self.world, ((k, k), (k, k), (0, 0)),
                        mode='constant', constant_values=0)
         t = self.player_position[0] + k - k
@@ -172,15 +173,15 @@ class boxworld(gym.Env):
 
     def world_fog_map(self):
         img = self.world.copy()
-        mask_out_of_perception = np.logical_not(self.perception_mask())
+        mask_out_of_viewport = np.logical_not(self.viewport_mask())
         mask_grid_color = np.ma.masked_equal(self.world, grid_color).mask[:, :, 0]
-        mask = np.logical_and(mask_out_of_perception, mask_grid_color)
+        mask = np.logical_and(mask_out_of_viewport, mask_grid_color)
         img[mask] = 0
         img = img.astype(np.uint8)
         return img
 
     def state(self):
-        return self.perception_map() / 255.0,\
+        return self.viewport_map() / 255.0,\
                self.owned_key / 255.0,\
                self.player_position / self.n
 

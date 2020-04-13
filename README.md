@@ -7,7 +7,19 @@ I customized to Viewport-BoxWorld described in the [[paper](https://arxiv.org/ab
 
 ![viewport.png](examples/viewport.png)
 
-## Actions
+## State
+
+The game provides tuple as a state. These are viewport map,
+owned key color, and position of player.
+
+ | states | shape | note |
+ | ------ | ----- | ---- |
+ | viewport map | (k, k, 3) | k is viewport size, normalized to 0-1 |
+ | owned key color | (3,) | normalized to 0-1 |
+ | player position | (2,) | x-y coordinate, normalized to 0-1 |
+ 
+## Action
+
 The game provides 4 actions to interact with the environment. 
 The mapping of the action numbers to the actual actions looks as follows
 
